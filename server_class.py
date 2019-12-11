@@ -1,5 +1,5 @@
 from socket import socket, AF_INET, SOCK_DGRAM, SOCK_STREAM, gethostbyname, gethostname
-from multiprocessing import Pipe, Process
+from multiprocessing import Pipe, Process, Queue
 
 class UDPServer(Process):
 
@@ -35,24 +35,20 @@ class TCPServer(Process):
         self.backlog = 10
 
         self.processes = []
-        self.conns = []
+        self.clqueue = Queue()
+        self.p_pipe, self.c_pipe = Pipe()
+        self.addrs = []
         
         self.tcpServSock = socket(AF_INET, SOCK_STREAM)
         self.tcpServSock.bind((self.ADDR, self.PORT))
 
-    def delProc(self, num):
-        print('now deleat')
-        self.conns[num].close()
-        self.conns.pop(num)
-
-    def loop_handler(self, num, conn, addr, pipeconn):
+    def loop_handler(self, conn, addr, dataqueue):
         while True:
             data = conn.recv(self.BUFFSIZE)
             if not data:
-                self.delProc(num)
                 break
             try:
-                pipeconn.send(data)
+                dataqueue.put(data.decode('utf-8'))
             except Exception as e:
                 print(e)
                 break
@@ -60,19 +56,41 @@ class TCPServer(Process):
     def setPipe(self, conn):
         self.proc_conn = conn
 
+    def sendData(self, dataname):
+        if dataname == 'addr':
+            self.proc_conn.send(self.addrs)
+            return True
+        elif dataname == 'data':
+            if self.p_pipe.poll():
+                self.proc_conn.send(self.p_pipe.recv())
+                return True
+            return False
+        else:
+            return False
+
+    def pipeprocess(self):
+        datalist = []
+        while True:
+            if not self.clqueue.empty():
+                datalist.append(self.clqueue.get())
+                self.c_pipe.send(datalist)
+
+                
+
     def run(self):
         self.tcpServSock.listen(self.backlog)
-        
+
+        pipeproc = Process(target=self.pipeprocess, daemon=True)
+        pipeproc.start()
+
         while True:
             try:
                 conn, addr = self.tcpServSock.accept()
             except KeyboardInterrupt:
                 self.tcpServSock.close()
                 break
-            parent_conn, child_conn = Pipe()
 
-            self.conns.append(parent_conn)
-            process = Process(target=self.loop_handler, args=(len(self.conns) - 1, conn, addr, child_conn), daemon=True)
-            process.start()
-            self.proc_conn.send(self.conns)
-            self.processes.append(process)
+            self.addrs.append(addr)
+            clproc = Process(target=self.loop_handler, args=(conn, addr, self.clqueue), daemon=True)
+            clproc.start()
+            self.processes.append(clproc)

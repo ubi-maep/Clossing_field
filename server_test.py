@@ -11,16 +11,14 @@ def main():
     while True:
         conns = []
         try:
+            if not proc.sendData('data'):
+                continue
+
             if parent_conn.poll():
-                for conn in parent_conn.recv():
-                    conns.append(conn)
-                while True:
-                    if parent_conn.poll():
-                        print('reload')
-                        break
-                    for conn in conns:
-                        if conn.poll():
-                            print(conn.recv().decode('utf-8'))
+                print(parent_conn.recv())
+            
+            time.sleep(1)
+                
         except KeyboardInterrupt as e:
             print(e)
             break
