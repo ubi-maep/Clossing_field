@@ -1,6 +1,5 @@
 from socket import socket, AF_INET, SOCK_DGRAM, SOCK_STREAM, gethostbyname, gethostname
 from multiprocessing import Pipe, Process, Queue
-import time
 
 class UDPServer(Process):
 
@@ -22,7 +21,6 @@ class UDPServer(Process):
                 self.data = data.decode()
             except:
                 pass
-
 
 class TCPServer(Process):
 
@@ -76,7 +74,7 @@ class TCPServer(Process):
             if pipe.poll():
                 conn.send(pipe.recv().encode('utf-8'))
 
-    def dataMarge(self):
+    def data_manager(self):
 
         datalist = []
         pipedict = {}
@@ -98,8 +96,8 @@ class TCPServer(Process):
         self.tcpServSock.listen(self.backlog)
         pipedict = {}
 
-        margeproc = Process(target=self.dataMarge, daemon=True)
-        margeproc.start()
+        manageproc = Process(target=self.data_manager, daemon=True)
+        manageproc.start()
 
         while True:
 
