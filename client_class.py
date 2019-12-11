@@ -29,7 +29,7 @@ class TCPClnt():
         self.tcpClntSock.send(data.encode('utf-8'))
 
     def catch(self):
-        return self.tcpClntSock.recv(self.BUFSIZE)
+        return self.tcpClntSock.recv(self.BUFSIZE).decode('utf-8')
 
     def close(self):
         self.tcpClntSock.close()        

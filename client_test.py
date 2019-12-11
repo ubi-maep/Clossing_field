@@ -7,6 +7,7 @@ def main():
         try:
             data = input('%s > ' % 'Client')
             clnt.send(data)
+            print(clnt.catch())
             if not data:
                 clnt.close()
                 break

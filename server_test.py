@@ -9,15 +9,14 @@ def main():
     proc.start()
 
     while True:
-        conns = []
         try:
-            if not proc.sendData('data'):
+            if not proc.sendReq():
                 continue
 
             if parent_conn.poll():
-                print(parent_conn.recv())
-            
-            time.sleep(1)
+                for addr, data in parent_conn.recv():
+                    print(data)
+                    proc.sendADDR(addr, 'done')
                 
         except KeyboardInterrupt as e:
             print(e)

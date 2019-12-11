@@ -1,5 +1,6 @@
 from socket import socket, AF_INET, SOCK_DGRAM, SOCK_STREAM, gethostbyname, gethostname
 from multiprocessing import Pipe, Process, Queue
+import time
 
 class UDPServer(Process):
 
@@ -34,63 +35,85 @@ class TCPServer(Process):
         self.BUFFSIZE = 1024
         self.backlog = 10
 
-        self.processes = []
         self.clqueue = Queue()
-        self.p_pipe, self.c_pipe = Pipe()
-        self.addrs = []
+        self.recv_dpipe, self.send_dpipe = Pipe()
+        self.recv_spipe, self.send_spipe = Pipe()
+        self.recv_s2, self.send_s2 = Pipe()
         
         self.tcpServSock = socket(AF_INET, SOCK_STREAM)
         self.tcpServSock.bind((self.ADDR, self.PORT))
+        
+    def setPipe(self, conn):
+        self.proc_conn = conn
 
-    def loop_handler(self, conn, addr, dataqueue):
+    def sendReq(self):
+        if self.recv_dpipe.poll():
+            self.proc_conn.send(self.recv_dpipe.recv())
+            return True
+        else:
+            return False
+
+    def sendADDR(self, addr, data):
+        self.send_s2.send([addr, data])
+
+    def sendALL(self, data):
+        print('b')
+        
+    def recv_handler(self, conn, addr, dataqueue):
         while True:
             data = conn.recv(self.BUFFSIZE)
             if not data:
                 break
             try:
-                dataqueue.put(data.decode('utf-8'))
+                datataple = (addr, data.decode('utf-8'))
+                dataqueue.put(datataple)
             except Exception as e:
                 print(e)
                 break
-        
-    def setPipe(self, conn):
-        self.proc_conn = conn
 
-    def sendData(self, dataname):
-        if dataname == 'addr':
-            self.proc_conn.send(self.addrs)
-            return True
-        elif dataname == 'data':
-            if self.p_pipe.poll():
-                self.proc_conn.send(self.p_pipe.recv())
-                return True
-            return False
-        else:
-            return False
+    def send_handler(self, conn, addr, pipe):
+        while True:
+            if pipe.poll():
+                conn.send(pipe.recv().encode('utf-8'))
 
-    def pipeprocess(self):
+    def dataMarge(self):
+
         datalist = []
+        pipedict = {}
         while True:
             if not self.clqueue.empty():
                 datalist.append(self.clqueue.get())
-                self.c_pipe.send(datalist)
-
+                self.send_dpipe.send(datalist)
+                datalist.clear()
+        
+            if self.recv_spipe.poll():
+                pipedict = self.recv_spipe.recv()
+            
+            if self.recv_s2.poll():
+                plist = self.recv_s2.recv()
+                pipedict[plist[0]].send(plist[1])
                 
 
     def run(self):
         self.tcpServSock.listen(self.backlog)
+        pipedict = {}
 
-        pipeproc = Process(target=self.pipeprocess, daemon=True)
-        pipeproc.start()
+        margeproc = Process(target=self.dataMarge, daemon=True)
+        margeproc.start()
 
         while True:
+
             try:
                 conn, addr = self.tcpServSock.accept()
             except KeyboardInterrupt:
                 self.tcpServSock.close()
                 break
+            
+            part_send, part_recv = Pipe()
+            pipedict[addr] = part_send
+            self.send_spipe.send(pipedict)
 
-            self.addrs.append(addr)
-            clproc = Process(target=self.loop_handler, args=(conn, addr, self.clqueue), daemon=True)
-            clproc.start()
-            self.processes.append(clproc)
+            recvproc = Process(target=self.recv_handler, args=(conn, addr, self.clqueue), daemon=True)
+            sendproc = Process(target=self.send_handler, args=(conn, addr, part_recv), daemon=True)
+            recvproc.start()
+            sendproc.start()
