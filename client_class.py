@@ -17,8 +17,8 @@ class UDPClnt():
 
 class TCPClnt():
 
-    def __init__(self):
-        self.ADDR = '127.0.0.1'
+    def __init__(self, ADDR='127.0.0.1'):
+        self.ADDR = ADDR
         self.PORT = 1919
         self.BUFSIZE = 1024
 

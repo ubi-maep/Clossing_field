@@ -24,11 +24,10 @@ class UDPServer(Process):
 
 class TCPServer(Process):
 
-    def __init__(self, PORT=1919):
+    def __init__(self, ADDR = '127.0.0.1', PORT=1919):
         Process.__init__(self)
-        self.data = 'hoge'
         self.kill_flag = False
-        self.ADDR = '127.0.0.1'
+        self.ADDR = ADDR
         self.PORT = PORT
         self.BUFFSIZE = 1024
         self.backlog = 10
@@ -53,9 +52,6 @@ class TCPServer(Process):
 
     def sendADDR(self, addr, data):
         self.send_s2.send([addr, data])
-
-    def sendALL(self, data):
-        print('b')
         
     def recv_handler(self, conn, addr, dataqueue):
         while True:
